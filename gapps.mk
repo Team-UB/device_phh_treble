@@ -12,8 +12,6 @@ GAPPS_FORCE_PACKAGE_OVERRIDES := true
 GAPPS_FORCE_BROWSER_OVERRIDES := true
 GAPPS_FORCE_WEBVIEW_OVERRIDES := true
 GAPPS_EXCLUDED_PACKAGES += \
-       GoogleContacts \
-       GoogleDialer \
        GoogleCamera \
        GoogleHome \
        EditorsSheets \
