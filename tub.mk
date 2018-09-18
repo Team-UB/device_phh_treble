@@ -4,7 +4,7 @@ else
 	TARGET_GAPPS_ARCH := arm
 endif
 
-$(call inherit-product, vendor/lineage/config/common_full_phone.mk)
--include vendor/lineage/build/core/config.mk
--include vendor/lineage/build/core/apicheck.mk
+$(call inherit-product, vendor/tub/config/common_full_phone.mk)
+-include vendor/tub/build/core/config.mk
+-include vendor/tub/build/core/apicheck.mk
 TARGET_BOOT_ANIMATION_RES := 1440
