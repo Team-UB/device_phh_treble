@@ -4,7 +4,7 @@ else
 	TARGET_GAPPS_ARCH := arm
 endif
 
-$(call inherit-product, vendor/tub/config/telephony.mk)
+$(call inherit-product, vendor/tub/common.mk)
 -include vendor/tub/build/core/config.mk
 -include vendor/tub/build/core/apicheck.mk
 TARGET_BOOT_ANIMATION_RES := 1440
