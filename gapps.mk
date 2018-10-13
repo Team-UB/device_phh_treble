@@ -18,7 +18,9 @@ GAPPS_EXCLUDED_PACKAGES += \
        EditorsSheets \
        EditorsSlides \
        EditorsDocs \
-       PrebuiltNewsWeather
+       PrebuiltNewsWeather \
+       NexusLauncherPrebuilt \
+       PixelLauncher
 PRODUCT_PACKAGES += \
        Chrome \
        CalculatorGoogle \
