@@ -14,6 +14,7 @@ GAPPS_FORCE_WEBVIEW_OVERRIDES := true
 GAPPS_EXCLUDED_PACKAGES += \
        GoogleCamera \
        GoogleHome \
+       GoogleNow \
        GooglePackageInstaller \
        EditorsSheets \
        EditorsSlides \
