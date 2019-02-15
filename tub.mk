@@ -1,10 +1,7 @@
-ifeq ($(TARGET_ARCH), arm64)
-	TARGET_GAPPS_ARCH := arm64
-else
-	TARGET_GAPPS_ARCH := arm
-endif
+TARGET_GAPPS_ARCH := arm64
 
 $(call inherit-product, vendor/tub/common.mk)
+$(call inherit-product, vendor/tub/config/common_full_phone.mk)
+$(call inherit-product, device/tub/sepolicy/common/sepolicy.mk)
 -include vendor/tub/build/core/config.mk
--include vendor/tub/build/core/apicheck.mk
 TARGET_BOOT_ANIMATION_RES := 1440
