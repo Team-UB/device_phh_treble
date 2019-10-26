@@ -29,6 +29,7 @@ fixSPL() {
         Arelease="$(getSPL "$img" android)"
         setprop ro.keymaster.xxx.release "$Arelease"
         setprop ro.keymaster.xxx.security_patch "$(getSPL "$img" spl)"
+        setprop ro.keymaster.brn Android
 
         getprop ro.vendor.build.fingerprint | grep -qiE '^samsung/' && return 0
         for f in \
@@ -48,6 +49,7 @@ fixSPL() {
                 -e 's/ro.build.version.release/ro.keymaster.xxx.release/g' \
                 -e 's/ro.build.version.security_patch/ro.keymaster.xxx.security_patch/g' \
                 -e 's/ro.product.model/ro.keymaster.mod/g' \
+                -e 's/ro.product.brand/ro.keymaster.brn/g' \
                 "/mnt/phh/$b"
             chcon "$ctxt" "/mnt/phh/$b"
             mount -o bind "/mnt/phh/$b" "$f"
@@ -258,6 +260,7 @@ if grep -qF 'PowerVR Rogue GE8100' /vendor/lib/egl/GLESv1_CM_mtk.so ||
     ( (getprop ro.product.board; getprop ro.board.platform) | grep -qiE -e msm8917 -e msm8937 -e msm8940); then
 
     setprop debug.hwui.renderer opengl
+    setprop ro.skia.ignore_swizzle true
 fi
 
 #If we have both Samsung and AOSP power hal, take Samsung's
