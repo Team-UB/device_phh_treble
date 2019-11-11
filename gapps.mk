@@ -36,6 +36,7 @@ endif
 
 #Pixel Experience gapps
 ifneq ($(wildcard vendor/gapps),)
+IS_PHONE := true
 $(call inherit-product,vendor/gapps/config.mk)
 PRODUCT_PACKAGES += \
        phh-overrides
