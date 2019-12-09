@@ -219,7 +219,7 @@ if getprop ro.vendor.build.fingerprint | grep -iq \
     -e iaomi/equuleus/equuleus -e motorola/nora -e xiaomi/nitrogen \
     -e motorola/hannah -e motorola/james -e motorola/pettyl -e iaomi/cepheus \
     -e iaomi/grus -e xiaomi/cereus -e iaomi/raphael -e iaomi/davinci \
-    -e iaomi/ginkgo;then
+    -e iaomi/ginkgo -e iaomi/laurel_sprout;then
     mount -o bind /mnt/phh/empty_dir /vendor/lib64/soundfx
     mount -o bind /mnt/phh/empty_dir /vendor/lib/soundfx
     setprop  ro.audio.ignore_effects true
@@ -280,6 +280,9 @@ if grep -qF 'PowerVR Rogue GE8100' /vendor/lib/egl/GLESv1_CM_mtk.so ||
 
     setprop debug.hwui.renderer opengl
     setprop ro.skia.ignore_swizzle true
+    if [ "$vndk" = 26 ] || [ "$vndk" = 27 ];then
+        setprop debug.hwui.profile true
+    fi
 fi
 
 #If we have both Samsung and AOSP power hal, take Samsung's
@@ -300,6 +303,10 @@ if getprop ro.hardware | grep -qF samsungexynos; then
 fi
 
 if getprop ro.product.model | grep -qF ANE; then
+    setprop debug.sf.latch_unsignaled 1
+fi
+        
+if getprop ro.vendor.product.device | grep -q -e nora -e rhannah; then
     setprop debug.sf.latch_unsignaled 1
 fi
 
@@ -412,22 +419,32 @@ if [ -f /system/phh/secure ];then
     }
 
     copyprop ro.build.device ro.vendor.build.device
+    copyprop ro.system.build.fingerprint ro.vendor.build.fingerprint
     copyprop ro.bootimage.build.fingerprint ro.vendor.build.fingerprint
     copyprop ro.build.fingerprint ro.vendor.build.fingerprint
     copyprop ro.build.device ro.vendor.product.device
+    copyprop ro.product.system.device ro.vendor.product.device
     copyprop ro.product.device ro.vendor.product.device
+    copyprop ro.product.system.device ro.product.vendor.device
     copyprop ro.product.device ro.product.vendor.device
+    copyprop ro.product.system.name ro.vendor.product.name
     copyprop ro.product.name ro.vendor.product.name
+    copyprop ro.product.system.name ro.product.vendor.device
     copyprop ro.product.name ro.product.vendor.device
+    copyprop ro.system.product.brand ro.vendor.product.brand
     copyprop ro.product.brand ro.vendor.product.brand
+    copyprop ro.product.system.model ro.vendor.product.model
     copyprop ro.product.model ro.vendor.product.model
+    copyprop ro.product.system.model ro.product.vendor.model
     copyprop ro.product.model ro.product.vendor.model
     copyprop ro.build.product ro.vendor.product.model
     copyprop ro.build.product ro.product.vendor.model
+    copyprop ro.system.product.manufacturer ro.vendor.product.manufacturer
     copyprop ro.product.manufacturer ro.vendor.product.manufacturer
+    copyprop ro.system.product.manufacturer ro.product.vendor.manufacturer
     copyprop ro.product.manufacturer ro.product.vendor.manufacturer
-    copyprop ro.build.version.security_patch ro.keymaster.xxx.security_patch
     copyprop ro.build.version.security_patch ro.vendor.build.security_patch
+    copyprop ro.build.version.security_patch ro.keymaster.xxx.security_patch
     resetprop ro.build.tags release-keys
     resetprop ro.boot.vbmeta.device_state locked
     resetprop ro.boot.verifiedbootstate green
@@ -484,4 +501,12 @@ done
 
 if [ "$has_hostapd" = false ];then
     setprop persist.sys.phh.system_hostapd true
+fi
+
+#Weird /odm/phone.prop Huawei stuff
+if [ -f /odm/phone.prop ];then
+    HW_PRODID="$(sed -nE 's/.*productid=([0-9x]*).*/\1/p' /proc/cmdline)"
+    if [ -n "$HW_PRODID" ];then
+        eval "$(awk 'BEGIN { a=0 }; /\[.*\].*/ { a=0 }; tolower($0) ~ /.*0x39606014.*/ { a=1 }; /.*=.*/ { if(a == 1) print $0 }' /odm/phone.prop |sed -nE 's/(.*)=(.*)/setprop \1 "\2";/p')"
+    fi
 fi
