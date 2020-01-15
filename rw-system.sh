@@ -179,6 +179,12 @@ if getprop ro.vendor.build.fingerprint | grep -qE 'Sony/'; then
     setprop persist.sys.qcom-brightness -1
 fi
 
+# Xiaomi MiA3 uses OLED display which works best with this setting
+if getprop ro.vendor.build.fingerprint | grep -iq \
+    -e iaomi/laurel_sprout;then
+    setprop persist.sys.qcom-brightness -1
+fi
+
 if getprop ro.vendor.build.fingerprint | grep -qi oneplus/oneplus6/oneplus6; then
     resize2fs /dev/block/platform/soc/1d84000.ufshc/by-name/userdata
 fi
@@ -204,7 +210,7 @@ if getprop ro.vendor.build.fingerprint | grep -q -i \
     -e xiaomi/clover -e xiaomi/wayne -e xiaomi/sakura \
     -e xiaomi/nitrogen -e xiaomi/whyred -e xiaomi/platina \
     -e xiaomi/ysl -e nubia/nx60 -e nubia/nx61 -e xiaomi/tulip \
-    -e xiaomi/lavender -e xiaomi/olivelite -e xiaomi/pine; then
+    -e xiaomi/lavender -e xiaomi/olive -e xiaomi/olivelite -e xiaomi/pine; then
     setprop persist.sys.qcom-brightness "$(cat /sys/class/leds/lcd-backlight/max_brightness)"
 fi
 
@@ -281,7 +287,8 @@ if grep -qF 'PowerVR Rogue GE8100' /vendor/lib/egl/GLESv1_CM_mtk.so ||
     setprop debug.hwui.renderer opengl
     setprop ro.skia.ignore_swizzle true
     if [ "$vndk" = 26 ] || [ "$vndk" = 27 ];then
-        setprop debug.hwui.profile true
+       setprop debug.hwui.use_buffer_age false
+
     fi
 fi
 
@@ -308,6 +315,11 @@ fi
         
 if getprop ro.vendor.product.device | grep -q -e nora -e rhannah; then
     setprop debug.sf.latch_unsignaled 1
+fi
+
+if getprop ro.vendor.build.fingerprint | grep -iq -e xiaomi/daisy; then
+    setprop debug.sf.latch_unsignaled 1
+    setprop debug.sf.enable_hwc_vds 1
 fi
 
 if getprop ro.vendor.build.fingerprint | grep -iq -E -e 'huawei|honor' || getprop persist.sys.overlay.huawei | grep -iq -E -e 'true'; then
@@ -357,7 +369,7 @@ if getprop ro.vendor.build.fingerprint | grep -qiE '^samsung'; then
     fi
 fi
 
-if getprop ro.vendor.build.fingerprint | grep -qE '^xiaomi/(daisy|wayne)/(daisy|wayne).*'; then
+if getprop ro.vendor.build.fingerprint | grep -qE '^xiaomi/wayne/wayne.*'; then
     # Fix camera on DND, ugly workaround but meh
     setprop audio.camerasound.force true
 fi
@@ -504,9 +516,21 @@ if [ "$has_hostapd" = false ];then
 fi
 
 #Weird /odm/phone.prop Huawei stuff
-if [ -f /odm/phone.prop ];then
-    HW_PRODID="$(sed -nE 's/.*productid=([0-9x]*).*/\1/p' /proc/cmdline)"
-    if [ -n "$HW_PRODID" ];then
-        eval "$(awk 'BEGIN { a=0 }; /\[.*\].*/ { a=0 }; tolower($0) ~ /.*0x39606014.*/ { a=1 }; /.*=.*/ { if(a == 1) print $0 }' /odm/phone.prop |sed -nE 's/(.*)=(.*)/setprop \1 "\2";/p')"
+HW_PRODID="$(sed -nE 's/.*productid=([0-9xa-f]*).*/\1/p' /proc/cmdline)"
+[ -z "$HW_PRODID" ] && HW_PRODID="0x$(od -A none -t x1 /sys/firmware/devicetree/base/hisi,modem_id | sed s/' '//g)"
+for part in odm vendor;do
+    if [ -f /$part/phone.prop ];then
+        if [ -n "$HW_PRODID" ];then
+            eval "$(awk 'BEGIN { a=0 }; /\[.*\].*/ { a=0 }; tolower($0) ~ /.*'"$HW_PRODID"'.*/ { a=1 }; /.*=.*/ { if(a == 1) print $0 }' /$part/phone.prop |sed -nE 's/(.*)=(.*)/setprop \1 "\2";/p')"
+        fi
     fi
+done
+
+# Fix sprd adf for surfaceflinger to start
+# Somehow the names of the device nodes are incorrect on Android 10; fix them by mknod
+if [ -e /dev/sprd-adf-dev ];then
+    mknod -m666 /dev/adf0 c 250 0
+    mknod -m666 /dev/adf-interface0.0 c 250 1
+    mknod -m666 /dev/adf-overlay-engine0.0 c 250 2
+    restorecon /dev/adf0 /dev/adf-interface0.0 /dev/adf-overlay-engine0.0
 fi
