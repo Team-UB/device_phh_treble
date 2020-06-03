@@ -38,7 +38,9 @@ fixSPL() {
             /system/lib64/vndk/libsoftkeymasterdevice.so /system/lib/vndk/libsoftkeymasterdevice.so \
             /system/lib/vndk-26/libsoftkeymasterdevice.so \
             /system/lib/vndk-27/libsoftkeymasterdevice.so /system/lib64/vndk-27/libsoftkeymasterdevice.so \
-	    /vendor/lib/libkeymaster3device.so /vendor/lib64/libkeymaster3device.so ; do
+	    /vendor/lib/libkeymaster3device.so /vendor/lib64/libkeymaster3device.so \
+        /vendor/lib/libMcTeeKeymaster.so /vendor/lib64/libMcTeeKeymaster.so \
+        /vendor/lib/hw/libMcTeeKeymaster.so /vendor/lib64/hw/libMcTeeKeymaster.so ; do
             [ ! -f "$f" ] && continue
             # shellcheck disable=SC2010
             ctxt="$(ls -lZ "$f" | grep -oE 'u:object_r:[^:]*:s0')"
@@ -84,9 +86,10 @@ changeKeylayout() {
     if getprop ro.vendor.build.fingerprint | grep -iq \
         -e xiaomi/polaris -e xiaomi/sirius -e xiaomi/dipper \
         -e xiaomi/wayne -e xiaomi/jasmine -e xiaomi/jasmine_sprout \
-        -e xiaomi/platina -e iaomi/perseus -e xiaomi/ysl \
-        -e xiaomi/nitrogen -e xiaomi/daisy -e xiaomi/sakura \
-        -e xiaomi/whyred -e xiaomi/tulip -e xiaomi/onc; then
+        -e xiaomi/platina -e iaomi/perseus -e xiaomi/ysl -e Redmi/begonia\
+        -e xiaomi/nitrogen -e xiaomi/sakura -e xiaomi/andromeda \
+        -e xiaomi/whyred -e xiaomi/tulip -e xiaomi/onc \
+        -e redmi/curtana; then
         if [ ! -f /mnt/phh/keylayout/uinput-goodix.kl ]; then
           cp /system/phh/empty /mnt/phh/keylayout/uinput-goodix.kl
           chmod 0644 /mnt/phh/keylayout/uinput-goodix.kl
@@ -97,6 +100,21 @@ changeKeylayout() {
           chmod 0644 /mnt/phh/keylayout/uinput-fpc.kl
           changed=true
         fi
+    fi
+
+    if getprop ro.vendor.build.fingerprint | grep -iq -e xiaomi/daisy; then
+        mpk="/mnt/phh/keylayout"
+        cp /system/phh/daisy-buttonJack.kl ${mpk}/msm8953-snd-card-mtp_Button_Jack.kl
+        changed=true
+        if [ ! -f /mnt/phh/keylayout/uinput-goodix.kl ]; then
+           cp /system/phh/daisy-uinput-goodix.kl ${mpk}/uinput-goodix.kl
+           changed=true
+        fi
+        if [ ! -f /mnt/phh/keylayout/uinput-fpc.kl ]; then
+           cp /system/phh/daisy-uinput-fpc.kl ${mpk}/uinput-fpc.kl
+           changed=true
+        fi
+        chmod 0644 ${mpk}/uinput* ${mpk}/msm8953*
     fi
 
     if getprop ro.vendor.build.fingerprint | grep -qi oneplus/oneplus6/oneplus6; then
@@ -126,6 +144,26 @@ changeKeylayout() {
     if getprop ro.vendor.build.fingerprint |grep -iq -E -e '^Lenovo/' && [ -f /sys/devices/virtual/touch/tp_dev/gesture_on ];then
         cp /system/phh/lenovo-synaptics_dsx.kl /mnt/phh/keylayout/synaptics_dsx.kl
         chmod 0644 /mnt/phh/keylayout/synaptics_dsx.kl
+        cp /system/phh/lenovo-synaptics_dsx.kl /mnt/phh/keylayout/fts_ts.kl
+        chmod 0644 /mnt/phh/keylayout/fts_ts.kl
+        changed=true
+    fi
+
+    if getprop ro.build.overlay.deviceid |grep -q -e RMX1931 -e CPH1859 -e CPH1861;then
+        cp /system/phh/oppo-touchpanel.kl /mnt/phh/keylayout/touchpanel.kl
+        chmod 0644 /mnt/phh/keylayout/touchpanel.kl
+        changed=true
+    fi
+
+    if getprop ro.vendor.build.fingerprint |grep -q -e google/;then
+        cp /system/phh/google-uinput-fpc.kl /mnt/phh/keylayout/uinput-fpc.kl
+        chmod 0644 /mnt/phh/keylayout/uinput-fpc.kl
+        changed=true
+    fi
+
+    if getprop ro.product.vendor.manufacturer |grep -q -e motorola;then
+        cp /system/phh/moto-uinput-egis.kl /mnt/phh/keylayout/uinput-egis.kl
+        chmod 0644 /mnt/phh/keylayout/uinput-egis.kl
         changed=true
     fi
 
@@ -137,7 +175,9 @@ changeKeylayout() {
 
 if mount -o remount,rw /system; then
     resize2fs "$(grep ' /system ' /proc/mounts | cut -d ' ' -f 1)" || true
-elif mount -o remount,rw /; then
+else
+    remount system
+    mount -o remount,rw /
     major="$(stat -c '%D' /.|sed -E 's/^([0-9a-f]+)([0-9a-f]{2})$/\1/g')"
     minor="$(stat -c '%D' /.|sed -E 's/^([0-9a-f]+)([0-9a-f]{2})$/\2/g')"
     mknod /dev/tmp-phh b $((0x$major)) $((0x$minor))
@@ -146,6 +186,16 @@ elif mount -o remount,rw /; then
 fi
 mount -o remount,ro /system || true
 mount -o remount,ro / || true
+
+for part in /dev/block/bootdevice/by-name/oppodycnvbk  /dev/block/platform/bootdevice/by-name/nvdata;do
+    if [ -b "$part" ];then
+        oppoName="$(grep -aohE '(RMX|CPH)[0-9]{4}' "$part" |head -n 1)"
+        if [ -n "$oppoName" ];then
+            setprop ro.build.overlay.deviceid "$oppoName"
+        fi
+    fi
+done
+
 
 mkdir -p /mnt/phh/
 mount -t tmpfs -o rw,nodev,relatime,mode=755,gid=0 none /mnt/phh || true
@@ -160,7 +210,14 @@ if grep vendor.huawei.hardware.biometrics.fingerprint /vendor/manifest.xml; then
     mount -o bind system/phh/huawei/fingerprint.kl /vendor/usr/keylayout/fingerprint.kl
 fi
 
-if ! grep android.hardware.biometrics.fingerprint /vendor/manifest.xml && ! grep android.hardware.biometrics.fingerprint /vendor/etc/vintf/manifest.xml; then
+foundFingerprint=false
+for manifest in /vendor/manifest.xml /vendor/etc/vintf/manifest.xml;do
+    if grep -q -e android.hardware.biometrics.fingerprint -e vendor.oppo.hardware.biometrics.fingerprint $manifest;then
+        foundFingerprint=true
+    fi
+done
+
+if [ "$foundFingerprint" = false ];then
     mount -o bind system/phh/empty /system/etc/permissions/android.hardware.fingerprint.xml
 fi
 
@@ -182,6 +239,12 @@ fi
 # Xiaomi MiA3 uses OLED display which works best with this setting
 if getprop ro.vendor.build.fingerprint | grep -iq \
     -e iaomi/laurel_sprout;then
+    setprop persist.sys.qcom-brightness -1
+fi
+
+# Lenovo Z5s brightness flickers without this setting
+if getprop ro.vendor.build.fingerprint | grep -iq \
+    -e Lenovo/jd2019; then
     setprop persist.sys.qcom-brightness -1
 fi
 
@@ -209,30 +272,43 @@ fi
 if getprop ro.vendor.build.fingerprint | grep -q -i \
     -e xiaomi/clover -e xiaomi/wayne -e xiaomi/sakura \
     -e xiaomi/nitrogen -e xiaomi/whyred -e xiaomi/platina \
-    -e xiaomi/ysl -e nubia/nx60 -e nubia/nx61 -e xiaomi/tulip \
+    -e xiaomi/ysl -e nubia/nx60 -e nubia/nx61 -e xiaomi/tulip -e Redmi/begonia\
     -e xiaomi/lavender -e xiaomi/olive -e xiaomi/olivelite -e xiaomi/pine; then
     setprop persist.sys.qcom-brightness "$(cat /sys/class/leds/lcd-backlight/max_brightness)"
 fi
 
-if getprop ro.vendor.product.device |grep -iq -e RMX1801 -e RMX1803 -e RMX1807;then	
+if getprop ro.vendor.product.device |grep -iq -e RMX1801 -e RMX1803 -e RMX1807;then
+    setprop persist.sys.qcom-brightness "$(cat /sys/class/leds/lcd-backlight/max_brightness)"
+fi
+
+if getprop ro.build.overlay.deviceid |grep -q -e CPH1859 -e CPH1861 -e RMX1811;then
     setprop persist.sys.qcom-brightness "$(cat /sys/class/leds/lcd-backlight/max_brightness)"
 fi
 
 if getprop ro.vendor.build.fingerprint | grep -iq \
-    -e Xiaomi/beryllium/beryllium -e Xiaomi/sirius/sirius \
-    -e Xiaomi/dipper/dipper -e Xiaomi/ursa/ursa -e Xiaomi/polaris/polaris \
-    -e motorola/ali/ali -e iaomi/perseus/perseus -e iaomi/platina/platina \
-    -e iaomi/equuleus/equuleus -e motorola/nora -e xiaomi/nitrogen \
-    -e motorola/hannah -e motorola/james -e motorola/pettyl -e iaomi/cepheus \
-    -e iaomi/grus -e xiaomi/cereus -e iaomi/raphael -e iaomi/davinci \
-    -e iaomi/ginkgo -e iaomi/laurel_sprout;then
+    -e xiaomi/beryllium/beryllium -e xiaomi/sirius/sirius \
+    -e xiaomi/dipper/dipper -e xiaomi/ursa/ursa -e xiaomi/polaris/polaris \
+    -e motorola/ali/ali -e xiaomi/perseus/perseus -e xiaomi/platina/platina \
+    -e xiaomi/equuleus/equuleus -e motorola/nora -e xiaomi/nitrogen \
+    -e motorola/hannah -e motorola/james -e motorola/pettyl -e xiaomi/cepheus \
+    -e xiaomi/grus -e xiaomi/cereus -e xiaomi/cactus -e xiaomi/raphael -e xiaomi/davinci \
+    -e xiaomi/ginkgo -e xiaomi/laurel_sprout -e xiaomi/andromeda \
+    -e redmi/curtana ; then
     mount -o bind /mnt/phh/empty_dir /vendor/lib64/soundfx
     mount -o bind /mnt/phh/empty_dir /vendor/lib/soundfx
     setprop  ro.audio.ignore_effects true
 fi
 
+if getprop ro.build.fingerprint | grep -iq \
+    -e motorola/channel; then
+    mount -o bind /mnt/phh/empty_dir /vendor/lib64/soundfx
+    mount -o bind /mnt/phh/empty_dir /vendor/lib/soundfx
+    setprop ro.audio.ignore_effects true
+fi
+
 if [ "$(getprop ro.vendor.product.manufacturer)" = "motorola" ] || [ "$(getprop ro.product.vendor.manufacturer)" = "motorola" ]; then
     if getprop ro.vendor.product.device | grep -q -e nora -e ali -e hannah -e evert -e jeter -e deen -e james -e pettyl -e jater; then
+        setprop  ro.audio.ignore_effects true
         if [ "$vndk" -ge 28 ]; then
             f="/vendor/lib/libeffects.so"
             # shellcheck disable=SC2010
@@ -277,6 +353,19 @@ for f in /vendor/lib/mtk-ril.so /vendor/lib64/mtk-ril.so /vendor/lib/libmtk-ril.
     setprop persist.sys.radio.ussd.fix true
 done
 
+if getprop ro.vendor.build.fingerprint | grep -iq -e iaomi/cactus -e iaomi/cereus \
+    -e Redmi/begonia; then
+    setprop debug.stagefright.omx_default_rank.sw-audio 1
+    setprop debug.stagefright.omx_default_rank 0
+fi
+
+if getprop ro.vendor.build.fingerprint | grep -iq -e xiaomi/ginkgo -e  xiaomi/willow; then
+    mount -o bind /system/phh/empty /vendor/lib/soundfx/libvolumelistener.so
+fi
+
+mount -o bind /system/phh/empty /vendor/lib/libpdx_default_transport.so
+mount -o bind /system/phh/empty /vendor/lib64/libpdx_default_transport.so
+
 mount -o bind /system/phh/empty /vendor/overlay/SysuiDarkTheme/SysuiDarkTheme.apk || true
 mount -o bind /system/phh/empty /vendor/overlay/SysuiDarkTheme/SysuiDarkThemeOverlay.apk || true
 
@@ -305,14 +394,14 @@ if busybox_phh unzip -p /vendor/app/ims/ims.apk classes.dex | grep -qF -e Landro
     mount -o bind /system/phh/empty /vendor/app/ims/ims.apk
 fi
 
-if getprop ro.hardware | grep -qF samsungexynos; then
+if getprop ro.hardware | grep -qF exynos; then
     setprop debug.sf.latch_unsignaled 1
 fi
 
 if getprop ro.product.model | grep -qF ANE; then
     setprop debug.sf.latch_unsignaled 1
 fi
-        
+
 if getprop ro.vendor.product.device | grep -q -e nora -e rhannah; then
     setprop debug.sf.latch_unsignaled 1
 fi
@@ -376,7 +465,7 @@ fi
 
 mount -o bind /mnt/phh/empty_dir /vendor/etc/audio || true
 
-for f in /vendor/lib{,64}/hw/com.qti.chi.override.so;do
+for f in /vendor/lib{,64}/hw/com.qti.chi.override.so /vendor/lib{,64}/libVD*;do
     [ ! -f $f ] && continue
     # shellcheck disable=SC2010
     ctxt="$(ls -lZ "$f" | grep -oE 'u:object_r:[^:]*:s0')"
@@ -385,11 +474,15 @@ for f in /vendor/lib{,64}/hw/com.qti.chi.override.so;do
     cp -a "$f" "/mnt/phh/$b"
     sed -i \
         -e 's/ro.product.manufacturer/sys.phh.xx.manufacturer/g' \
+        -e 's/ro.product.brand/sys.phh.xx.brand/g' \
+        -e 's/ro.product.model/sys.phh.xx.model/g' \
         "/mnt/phh/$b"
     chcon "$ctxt" "/mnt/phh/$b"
     mount -o bind "/mnt/phh/$b" "$f"
 
     setprop sys.phh.xx.manufacturer "$(getprop ro.product.vendor.manufacturer)"
+    setprop sys.phh.xx.brand "$(getprop ro.product.vendor.brand)"
+    setprop sys.phh.xx.model "$(getprop ro.product.vendor.model)"
 done
 
 if [ -n "$(getprop ro.boot.product.hardware.sku)" ] && [ -z "$(getprop ro.hw.oemName)" ];then
@@ -399,9 +492,8 @@ fi
 if getprop ro.vendor.build.fingerprint | grep -qiE '^samsung/' && [ "$vndk" -ge 28 ];then
 	setprop persist.sys.phh.samsung_fingerprint 0
 	#obviously broken perms
-	if [ "$(stat -c '%A' /sys/class/sec/tsp/ear_detect_enable)" == "-rw-rw-r--" ] &&
-		[ "$(stat -c '%U' /sys/class/sec/tsp/ear_detect_enable)" == "root" ] &&
-		[ "$(stat -c '%G' /sys/class/sec/tsp/ear_detect_enable)" == "root" ];then
+	if [ "$(stat -c '%U' /sys/class/sec/tsp/cmd)" == "root" ] &&
+		[ "$(stat -c '%G' /sys/class/sec/tsp/cmd)" == "root" ];then
 
 		chcon u:object_r:sysfs_ss_writable:s0 /sys/class/sec/tsp/ear_detect_enable
 		chown system /sys/class/sec/tsp/ear_detect_enable
@@ -411,7 +503,6 @@ if getprop ro.vendor.build.fingerprint | grep -qiE '^samsung/' && [ "$vndk" -ge 
 
 		chown system /sys/class/power_supply/battery/wc_tx_en
 		chcon u:object_r:sysfs_app_writable:s0 /sys/class/power_supply/battery/wc_tx_en
-
 	fi
 
 	if [ "$(stat -c '%U' /sys/class/sec/tsp/input/enabled)" == "root" ] &&
@@ -420,6 +511,11 @@ if getprop ro.vendor.build.fingerprint | grep -qiE '^samsung/' && [ "$vndk" -ge 
 			chcon u:object_r:sysfs_ss_writable:s0 /sys/class/sec/tsp/input/enabled
 			setprop ctl.restart sec-miscpower-1-0
 	fi
+	if [ "$(stat -c '%U' /sys/class/camera/flash/rear_flash)" == "root" ] &&
+		[ "$(stat -c '%G' /sys/class/camera/flash/rear_flash)" == "root" ];then
+        chown system:system /sys/class/camera/flash/rear_flash
+        chcon u:object_r:sysfs_camera_writable:s0 /sys/class/camera/flash/rear_flash
+    fi
 fi
 
 if [ -f /system/phh/secure ];then
@@ -455,8 +551,10 @@ if [ -f /system/phh/secure ];then
     copyprop ro.product.manufacturer ro.vendor.product.manufacturer
     copyprop ro.system.product.manufacturer ro.product.vendor.manufacturer
     copyprop ro.product.manufacturer ro.product.vendor.manufacturer
-    copyprop ro.build.version.security_patch ro.vendor.build.security_patch
-    copyprop ro.build.version.security_patch ro.keymaster.xxx.security_patch
+    (getprop ro.vendor.build.security_patch; getprop ro.keymaster.xxx.security_patch) |sort |tail -n 1 |while read v;do
+        [ -n "$v" ] && resetprop ro.build.version.security_patch "$v"
+    done
+
     resetprop ro.build.tags release-keys
     resetprop ro.boot.vbmeta.device_state locked
     resetprop ro.boot.verifiedbootstate green
@@ -489,20 +587,32 @@ if getprop ro.boot.boot_devices |grep -v , |grep -qE .;then
 fi
 
 if [ -c /dev/dsm ];then
+    # /dev/dsm is a magic device on Kirin chipsets that teecd needs to access.
+    # Make sure that permissions are right.
     chown system:system /dev/dsm
     chmod 0660 /dev/dsm
+
+    # The presence of /dev/dsm indicates that we have a teecd,
+    # which needs /sec_storage and /data/sec_storage_data
+
     mkdir -p /data/sec_storage_data
     chown system:system /data/sec_storage_data
-    chcon u:object_r:teecd_data_file_system:s0 /data/sec_storage_data
-    mount /data/sec_storage_data /sec_storage
-fi
+    chcon -R u:object_r:teecd_data_file:s0 /data/sec_storage_data
 
-#Try to detect DT2W
-for ev in $(cd /sys/class/input;echo event*);do
-	if [ -f "/sys/class/input/$ev/device/device/gesture_mask" ];then
-		setprop persist.sys.phh.dt2w_evnode /dev/input/$ev
-	fi
-done
+    if mount | grep -q " on /sec_storage " ; then
+        # /sec_storage is already mounted by the vendor, don't try to create and mount it
+        # ourselves. However, some devices have /sec_storage owned by root, which means that
+        # the fingerprint daemon (running as system) cannot access it.
+        chown -R system:system /sec_storage
+        chmod -R 0660 /sec_storage
+        chcon -R u:object_r:teecd_data_file:s0 /sec_storage
+    else
+        # No /sec_storage provided by vendor, mount /data/sec_storage_data to it
+        mount /data/sec_storage_data /sec_storage
+        chown system:system /sec_storage
+        chcon u:object_r:teecd_data_file:s0 /sec_storage
+    fi
+fi
 
 has_hostapd=false
 for i in odm oem vendor product;do
@@ -546,9 +656,93 @@ if getprop ro.vendor.build.fingerprint | grep -iq \
     setprop persist.sys.phh.radio.use_old_mnc_format true
 fi
 
-# Fix manual network selection with old modem
-# https://github.com/LineageOS/android_hardware_ril/commit/e3d006fa722c02fc26acdfcaa43a3f3a1378eba9
-if getprop ro.vendor.build.fingerprint | grep -iq \
-    -e xiaomi/polaris -e xiaomi/whyred; then
-    setprop persist.sys.phh.radio.use_old_mnc_format true
+if getprop ro.build.overlay.deviceid |grep -qE '^RMX';then
+    setprop oppo.camera.packname com.oppo.camera
+    setprop sys.phh.xx.brand realme
+fi
+
+if [ -f /sys/firmware/devicetree/base/oppo,prjversion ];then
+    setprop ro.separate.soft $((0x$(od -w4 -j4  -An -tx1 /sys/firmware/devicetree/base/oppo,prjversion |tr -d ' ' |head -n 1)))
+fi
+
+if [ -f /proc/oppoVersion/prjVersion ];then
+    setprop ro.separate.soft $(cat /proc/oppoVersion/prjVersion)
+fi
+
+echo 1 >  /proc/tfa98xx/oppo_tfa98xx_fw_update
+echo 1 > /proc/touchpanel/tp_fw_update
+
+if getprop ro.build.overlay.deviceid |grep -qE '^RMX';then
+    chmod 0660 /sys/devices/platform/soc/soc:fpc_fpc1020/{irq,irq_enable,wakelock_enable}
+    if [ "$(stat -c '%U' /sys/devices/platform/soc/soc:fpc_fpc1020/irq)" == "root" ] &&
+		[ "$(stat -c '%G' /sys/devices/platform/soc/soc:fpc_fpc1020/irq)" == "root" ];then
+            chown system:system /sys/devices/platform/soc/soc:fpc_fpc1020/{irq,irq_enable,wakelock_enable}
+            setprop persist.sys.phh.fingerprint.nocleanup true
+    fi
+fi
+
+if [ "$vndk" -le 28 ] && getprop ro.hardware |grep -q -e mt6761 -e mt6763 -e mt6765 -e mt6785 -e mt8768;then
+    setprop debug.stagefright.ccodec 0
+fi
+
+if getprop ro.omc.build.version |grep -qE .;then
+	for f in $(find /odm -name \*.apk);do
+		mount /system/phh/empty $f
+	done
+fi
+
+if getprop ro.vendor.build.fingerprint |grep -qiE \
+        -e Nokia/Plate2 \
+        -e razer/cheryl ; then
+    setprop media.settings.xml "/vendor/etc/media_profiles_vendor.xml"
+fi
+resetprop service.adb.root 0
+
+# This is for Samsung Galaxy devices with HBM FOD
+# On those devices, a magic Layer usageBits switches to "mask_brightness"
+# But default is 255, so set it to max instead
+cat /sys/class/backlight/*/max_brightness |sort -n |tail -n 1 > /sys/class/lcd/panel/mask_brightness
+
+if getprop ro.vendor.build.fingerprint |grep -qiE '^xiaomi/';then
+    setprop persist.sys.phh.fod.xiaomi true
+fi
+
+if getprop ro.vendor.build.fingerprint |grep -qiE '^samsung/';then
+    if ls -lZ /sys/class/lcd/panel/mask_brightness |grep -q u:object_r:sysfs:s0;then
+        for f in /sys/class/lcd/panel/actual_mask_brightness /sys/class/lcd/panel/mask_brightness /sys/class/lcd/panel/device/backlight/panel/brightness /sys/class/backlight/panel0-backlight/brightness;do
+            chcon u:object_r:sysfs_lcd_writable:s0 $f
+            chmod 0644 $f
+            chown system:system $f
+        done
+    fi
+
+    setprop persist.sys.phh.fod.samsung true
+fi
+
+if getprop ro.vendor.build.fingerprint |grep -qiE '^oneplus/';then
+    setprop persist.sys.phh.fod.bbk true
+fi
+if getprop ro.build.overlay.deviceid |grep -qiE -e '^RMX' -e '^CPH';then
+    setprop persist.sys.phh.fod.bbk true
+fi
+
+if getprop ro.build.overlay.deviceid |grep -iq -e RMX1941 -e RMX1945 -e RMX1943 -e RMX1942;then	
+    setprop persist.sys.qcom-brightness "$(cat /sys/class/leds/lcd-backlight/max_brightness)"
+    setprop persist.sys.phh.mainkeys 0
+fi
+
+resetprop ro.bluetooth.library_name libbluetooth.so
+
+if getprop ro.vendor.build.fingerprint |grep -iq xiaomi/cepheus;then
+    setprop ro.netflix.bsp_rev Q855-16947-1
+fi
+
+if getprop ro.vendor.build.fingerprint |grep -qi redmi/curtana;then
+    setprop ro.netflix.bsp_rev Q6250-19132-1
+fi
+
+# Set props for Vsmart Live's fod
+if getprop ro.vendor.build.fingerprint |grep -q vsmart/V620A_open;then
+    setprop persist.sys.fp.fod.location.X_Y 447,1812
+    setprop persist.sys.fp.fod.size.width_height 186,186
 fi

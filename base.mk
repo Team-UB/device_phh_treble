@@ -3,6 +3,7 @@
 PRODUCT_COPY_FILES := \
 	frameworks/native/data/etc/android.hardware.fingerprint.xml:system/etc/permissions/android.hardware.fingerprint.xml \
 	frameworks/native/data/etc/android.hardware.telephony.gsm.xml:system/etc/permissions/android.hardware.telephony.gsm.xml \
+	frameworks/native/data/etc/android.hardware.telephony.ims.xml:system/etc/permissions/android.hardware.telephony.ims.xml \
 	frameworks/native/data/etc/android.hardware.bluetooth.xml:system/etc/permissions/android.hardware.bluetooth.xml \
 	frameworks/native/data/etc/android.hardware.bluetooth_le.xml:system/etc/permissions/android.hardware.bluetooth_le.xml \
 
@@ -56,6 +57,8 @@ PRODUCT_PACKAGES += \
 
 PRODUCT_COPY_FILES += \
 	device/phh/treble/rw-system.sh:system/bin/rw-system.sh \
+	device/phh/treble/phh-on-data.sh:system/bin/phh-on-data.sh \
+	device/phh/treble/phh-prop-handler.sh:system/bin/phh-prop-handler.sh \
 	device/phh/treble/fixSPL/getSPL.arm:system/bin/getSPL
 
 PRODUCT_COPY_FILES += \
@@ -81,7 +84,8 @@ PRODUCT_COPY_FILES += \
 	device/phh/treble/twrp/busybox-armv7l:system/bin/busybox_phh
 
 PRODUCT_PACKAGES += \
-    simg2img_simple
+    simg2img_simple \
+    lptools
 
 ifneq (,$(wildcard external/exfat))
 PRODUCT_PACKAGES += \
@@ -109,7 +113,13 @@ PRODUCT_COPY_FILES += \
 	device/phh/treble/files/samsung-9810-floating_feature.xml:system/phh/sam-9810-flo_feat.xml \
 	device/phh/treble/files/mimix3-gpio-keys.kl:system/phh/mimix3-gpio-keys.kl \
 	device/phh/treble/files/nokia-soc_gpio_keys.kl:system/phh/nokia-soc_gpio_keys.kl \
-	device/phh/treble/files/lenovo-synaptics_dsx.kl:system/phh/lenovo-synaptics_dsx.kl
+	device/phh/treble/files/lenovo-synaptics_dsx.kl:system/phh/lenovo-synaptics_dsx.kl \
+	device/phh/treble/files/oppo-touchpanel.kl:system/phh/oppo-touchpanel.kl \
+	device/phh/treble/files/google-uinput-fpc.kl:system/phh/google-uinput-fpc.kl \
+	device/phh/treble/files/moto-uinput-egis.kl:system/phh/moto-uinput-egis.kl \
+	device/phh/treble/files/daisy-buttonJack.kl:system/phh/daisy-buttonJack.kl \
+	device/phh/treble/files/daisy-uinput-fpc.kl:system/phh/daisy-uinput-fpc.kl \
+	device/phh/treble/files/daisy-uinput-goodix.kl:system/phh/daisy-uinput-goodix.kl
 
 SELINUX_IGNORE_NEVERALLOWS := true
 
@@ -130,7 +140,8 @@ PRODUCT_PACKAGES += \
 
 # Helper to debug Xiaomi motorized camera
 PRODUCT_PACKAGES += \
-	xiaomi-motor
+	xiaomi-motor \
+	oneplus-motor
 
 PRODUCT_PACKAGES += \
 	Stk
@@ -139,6 +150,9 @@ PRODUCT_PACKAGES += \
 	resetprop
 PRODUCT_COPY_FILES += \
 	device/phh/treble/phh-securize.sh:system/bin/phh-securize.sh \
+
+PRODUCT_COPY_FILES += \
+	device/phh/treble/remove-telephony.sh:system/bin/remove-telephony.sh \
 
 PRODUCT_COPY_FILES += \
 	frameworks/native/data/etc/android.software.secure_lock_screen.xml:system/etc/permissions/android.software.secure_lock_screen.xml \
@@ -152,3 +166,16 @@ PRODUCT_PACKAGES += \
 # Privapp-permissions whitelist for PhhTrebleApp
 PRODUCT_COPY_FILES += \
 	device/phh/treble/privapp-permissions-me.phh.treble.app.xml:system/etc/permissions/privapp-permissions-me.phh.treble.app.xml
+
+# Remote debugging
+PRODUCT_COPY_FILES += \
+	device/phh/treble/remote/dbclient:system/bin/dbclient \
+	device/phh/treble/remote/phh-remotectl.rc:system/etc/init/phh-remotectl.rc \
+	device/phh/treble/remote/phh-remotectl.sh:system/bin/phh-remotectl.sh \
+
+PRODUCT_PACKAGES += \
+	android.hardware.biometrics.fingerprint@2.1-service.oppo.compat \
+
+
+PRODUCT_PACKAGES += \
+	vr_hwc

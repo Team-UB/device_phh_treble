@@ -30,7 +30,7 @@ typeattribute su mlstrustedsubject;
 
 allow phhsu_daemon { system_api_service app_api_service system_server_service }:service_manager find;
 
-allow system_server phhsu_daemon:fifo_file { read write };
+allow system_server phhsu_daemon:fifo_file { read write getattr };
 allow system_server phhsu_daemon:fd use;
 allow system_server phhsu_daemon:binder { call transfer };
 allow system_server shell_devpts:chr_file { read write };
@@ -91,11 +91,11 @@ allow phhsu_daemon dex2oat_exec:file rx_file_perms;
 
 allow phhsu_daemon phhsu_daemon_tmpfs:file rwx_file_perms;
 
-allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type }:file { rwx_file_perms create mounton setattr getattr relabelto relabelfrom };
-allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type }:lnk_file { rw_file_perms create mounton setattr getattr relabelto relabelfrom };
-allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type }:dir { rw_dir_perms create mounton setattr getattr relabelto relabelfrom };
-allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type }:chr_file rwx_file_perms;
-allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type }:blk_file { rw_file_perms create };
+allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type phhsu_daemon }:file { rwx_file_perms create mounton setattr getattr relabelto relabelfrom unlink rename };
+allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type phhsu_daemon }:lnk_file { rw_file_perms create mounton setattr getattr relabelto relabelfrom unlink rename};
+allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type phhsu_daemon }:dir { rw_dir_perms create mounton setattr getattr relabelto relabelfrom unlink rename};
+allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type phhsu_daemon }:chr_file { rwx_file_perms unlink rename ioctl};
+allow phhsu_daemon { proc_type dev_type exec_type file_type sysfs_type fs_type phhsu_daemon }:blk_file { rw_file_perms create unlink rename ioctl};
 
 allow phhsu_daemon device:file rwx_file_perms;
 allow phhsu_daemon device:dir rw_dir_perms;
@@ -123,7 +123,7 @@ allow phhsu_daemon tombstoned:unix_stream_socket { connectto };
 allow phhsu_daemon { property_data_file data_file_type tmpfs }:file create_file_perms;
 allow phhsu_daemon { property_data_file data_file_type tmpfs }:dir create_dir_perms;
 
-allow phhsu_daemon fs_type:filesystem { mount remount unmount associate };
+allow phhsu_daemon { tmpfs fs_type }:filesystem { mount remount unmount associate };
 
 allow phhsu_daemon phhsu_daemon:file relabelfrom;
 
@@ -138,3 +138,11 @@ allow phhsu_daemon self:{ netlink_tcpdiag_socket } { create_socket_perms nlmsg_w
 
 allow phhsu_daemon file_type:file create_file_perms;
 allow phhsu_daemon file_type:dir create_dir_perms;
+
+allow phhsu_daemon domain:process { transition };
+
+
+# 05-09 00:05:30.149 18450 18450 W lprename: type=1400 audit(0.0:40923): avc: denied { ioctl } for path="/dev/block/sda25" dev="tmpfs" ino=19441 ioctlcmd=0x1278 scontext=u:r:phhsu_daemon:s0 tcontext=u:object_r:super_block_device:s0 tclass=blk_file permissive=0
+
+allowxperm phhsu_daemon { file_type block_device }:blk_file ioctl { 0-0xffff };
+allowxperm phhsu_daemon super_block_device:blk_file ioctl { 0x1278-0x127a };
