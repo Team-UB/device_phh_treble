@@ -80,6 +80,7 @@ changeKeylayout() {
 
         cp /system/phh/samsung-gpio_keys.kl /mnt/phh/keylayout/gpio_keys.kl
         cp /system/phh/samsung-sec_touchscreen.kl /mnt/phh/keylayout/sec_touchscreen.kl
+        cp /system/phh/samsung-sec_touchkey.kl /mnt/phh/keylayout/sec_touchkey.kl
         chmod 0644 /mnt/phh/keylayout/gpio_keys.kl /mnt/phh/keylayout/sec_touchscreen.kl
     fi
 
@@ -89,7 +90,7 @@ changeKeylayout() {
         -e xiaomi/platina -e iaomi/perseus -e xiaomi/ysl -e Redmi/begonia\
         -e xiaomi/nitrogen -e xiaomi/sakura -e xiaomi/andromeda \
         -e xiaomi/whyred -e xiaomi/tulip -e xiaomi/onc \
-        -e redmi/curtana; then
+        -e redmi/curtana -e redmi/picasso; then
         if [ ! -f /mnt/phh/keylayout/uinput-goodix.kl ]; then
           cp /system/phh/empty /mnt/phh/keylayout/uinput-goodix.kl
           chmod 0644 /mnt/phh/keylayout/uinput-goodix.kl
@@ -165,7 +166,15 @@ changeKeylayout() {
 
     if getprop ro.product.vendor.manufacturer |grep -q -e motorola;then
         cp /system/phh/moto-uinput-egis.kl /mnt/phh/keylayout/uinput-egis.kl
+        cp /system/phh/moto-uinput-egis.kl /mnt/phh/keylayout/uinput-fpc.kl
         chmod 0644 /mnt/phh/keylayout/uinput-egis.kl
+        chmod 0644 /mnt/phh/keylayout/uinput-fpc.kl
+        changed=true
+    fi
+
+    if getprop ro.vendor.build.fingerprint |grep -q -e nubia/NX659;then
+        cp /system/phh/nubia-nubia_synaptics_dsx.kl /mnt/phh/keylayout/nubia_synaptics_dsx.kl
+        chmod 0644 /mnt/phh/keylayout/nubia_synaptics_dsx.kl
         changed=true
     fi
 
@@ -174,6 +183,15 @@ changeKeylayout() {
         restorecon -R /system/usr/keylayout
     fi
 }
+
+if [ "$(getprop ro.product.vendor.manufacturer)" = motorola ] && getprop ro.vendor.product.name |grep -qE '^lima';then
+    for l in lib lib64;do
+        for f in mt6771 lima;do
+            mount /system/phh/empty /vendor/$l/hw/keystore.$f.so
+        done
+    done
+    setprop persist.sys.overlay.devinputjack true
+fi
 
 if mount -o remount,rw /system; then
     resize2fs "$(grep ' /system ' /proc/mounts | cut -d ' ' -f 1)" || true
@@ -295,7 +313,7 @@ if getprop ro.vendor.build.fingerprint | grep -iq \
     -e motorola/hannah -e motorola/james -e motorola/pettyl -e xiaomi/cepheus \
     -e xiaomi/grus -e xiaomi/cereus -e xiaomi/cactus -e xiaomi/raphael -e xiaomi/davinci \
     -e xiaomi/ginkgo -e xiaomi/laurel_sprout -e xiaomi/andromeda \
-    -e redmi/curtana ; then
+    -e redmi/curtana -e redmi/picasso ; then
     mount -o bind /mnt/phh/empty_dir /vendor/lib64/soundfx
     mount -o bind /mnt/phh/empty_dir /vendor/lib/soundfx
     setprop  ro.audio.ignore_effects true
@@ -482,9 +500,13 @@ for f in /vendor/lib{,64}/hw/com.qti.chi.override.so /vendor/lib{,64}/libVD*;do
     chcon "$ctxt" "/mnt/phh/$b"
     mount -o bind "/mnt/phh/$b" "$f"
 
-    setprop sys.phh.xx.manufacturer "$(getprop ro.product.vendor.manufacturer)"
+    manufacturer=$(getprop ro.product.vendor.manufacturer)
+    [ -z "$manufacturer" ] && manufacturer=$(getprop ro.product.manufacturer)
+    model=$(getprop ro.product.vendor.model)
+    [ -z "$model" ] && model=$(getprop ro.product.odm.model)
+    setprop sys.phh.xx.manufacturer "$manufacturer"
     setprop sys.phh.xx.brand "$(getprop ro.product.vendor.brand)"
-    setprop sys.phh.xx.model "$(getprop ro.product.vendor.model)"
+    setprop sys.phh.xx.model "$model"
 done
 
 if [ -n "$(getprop ro.boot.product.hardware.sku)" ] && [ -z "$(getprop ro.hw.oemName)" ];then
@@ -576,7 +598,7 @@ fi
 for abi in "" 64;do
     f=/vendor/lib$abi/libstagefright_foundation.so
     if [ -f "$f" ];then
-        for vndk in 26 27 28;do
+        for vndk in 26 27 28 29;do
             mount "$f" /system/lib$abi/vndk-$vndk/libstagefright_foundation.so
         done
     fi
@@ -683,7 +705,7 @@ if getprop ro.build.overlay.deviceid |grep -qE '^RMX';then
     fi
 fi
 
-if [ "$vndk" -le 28 ] && getprop ro.hardware |grep -q -e mt6761 -e mt6763 -e mt6765 -e mt6785 -e mt8768;then
+if [ "$vndk" -le 28 ] && getprop ro.hardware |grep -q -e mt6761 -e mt6763 -e mt6765 -e mt6785 -e mt8768 -e mt6779 -e mt6771 -e mt8766;then
     setprop debug.stagefright.ccodec 0
 fi
 
@@ -710,13 +732,11 @@ if getprop ro.vendor.build.fingerprint |grep -qiE '^xiaomi/';then
 fi
 
 if getprop ro.vendor.build.fingerprint |grep -qiE '^samsung/';then
-    if ls -lZ /sys/class/lcd/panel/mask_brightness |grep -q u:object_r:sysfs:s0;then
-        for f in /sys/class/lcd/panel/actual_mask_brightness /sys/class/lcd/panel/mask_brightness /sys/class/lcd/panel/device/backlight/panel/brightness /sys/class/backlight/panel0-backlight/brightness;do
-            chcon u:object_r:sysfs_lcd_writable:s0 $f
-            chmod 0644 $f
-            chown system:system $f
-        done
-    fi
+    for f in /sys/class/lcd/panel/actual_mask_brightness /sys/class/lcd/panel/mask_brightness /sys/class/lcd/panel/device/backlight/panel/brightness /sys/class/backlight/panel0-backlight/brightness;do
+        chcon u:object_r:sysfs_lcd_writable:s0 $f
+        chmod 0644 $f
+        chown system:system $f
+    done
 
     setprop persist.sys.phh.fod.samsung true
 fi
@@ -748,3 +768,12 @@ if getprop ro.vendor.build.fingerprint |grep -q vsmart/V620A_open;then
     setprop persist.sys.fp.fod.location.X_Y 447,1812
     setprop persist.sys.fp.fod.size.width_height 186,186
 fi
+
+setprop vendor.display.res_switch_en 1
+
+if getprop ro.bionic.cpu_variant |grep -q kryo300;then
+    resetprop ro.bionic.cpu_variant cortex-a75
+    setprop dalvik.vm.isa.arm64.variant cortex-a75
+    setprop dalvik.vm.isa.arm64.features runtime
+fi
+
